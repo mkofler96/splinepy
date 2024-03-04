@@ -47,8 +47,8 @@ class QuadrupelLattice(_TileBase):
         -------
         microtile_list : list(splines)
         """
-        min_thickness = 0.1
-        max_thickness = min_thickness * (1 + 2**0.5)
+        min_thickness = 0.05
+        max_thickness = 0.1 * (1 + 2**0.5)*2
         if not isinstance(contact_length, float):
             raise ValueError("Invalid Type")
         if not ((contact_length > 0.0) and (contact_length < 1.0)):
@@ -94,6 +94,12 @@ class QuadrupelLattice(_TileBase):
                 v_one_half = 0.5
                 v_one = 1.0
                 v_zero = 0.0
+                alpha = _np.arctan2((v_one_half-thickness_horizontal),
+                                    (v_one_half-thickness_vertical))
+                diag_y_up = thickness_diag_up/(2*_np.cos(alpha))
+                diag_x_up = thickness_diag_up/(2*_np.sin(alpha))
+                diag_y_down = thickness_diag_down/(2*_np.cos(alpha))
+                diag_x_down = thickness_diag_down/(2*_np.sin(alpha))
             else:
                 cl = 0.0
                 thickness_horizontal = (
@@ -116,16 +122,19 @@ class QuadrupelLattice(_TileBase):
             # Set variables (with notation x01 = 1 - x11 )
             # Variables in Vertical direction
             v01 = thickness_horizontal
-            v02 = thickness_vertical + coeff_sqrt_2 * thickness_diag_up
-            v03 = thickness_vertical + coeff_sqrt_2 * thickness_diag_down
+            v02 = thickness_horizontal + diag_y_up
+            # v02 = thickness_vertical + coeff_sqrt_2 * thickness_diag_up
+            v03 = thickness_horizontal + diag_y_down
             v11 = v_one - v01
             v12 = v_one - v02
             v13 = v_one - v03
 
             # Variables in Horizontal direction
             h01 = thickness_vertical
-            h02 = thickness_horizontal + coeff_sqrt_2 * thickness_diag_up
-            h03 = thickness_horizontal + coeff_sqrt_2 * thickness_diag_down
+            h02 = thickness_vertical + diag_x_up
+
+            # h02 = thickness_horizontal + coeff_sqrt_2 * thickness_diag_up
+            h03 = thickness_vertical + diag_x_down
             h11 = v_one - h01
             h12 = v_one - h02
             h13 = v_one - h03
@@ -133,21 +142,33 @@ class QuadrupelLattice(_TileBase):
             # Omnidirectional Variables
             c01 = v_zero
             c02 = (v_one - cl) * 0.5
-            c03 = v_one_half + coeff_inv_sqrt_2 * (
-                thickness_diag_up - thickness_diag_down
-            )
-            c04 = v_one_half - coeff_inv_sqrt_2 * (
-                thickness_diag_up + thickness_diag_down
-            )
-            c05 = (
-                0.5
-                * coeff_one_half
-                * (thickness_horizontal + thickness_vertical)
-            )
+
+            c03_x = 2.0*thickness_diag_down*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_horizontal - 4.0) - 2.0*thickness_diag_up*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_horizontal - 4.0) + 4.0*thickness_horizontal/(8.0*thickness_horizontal - 4.0) - 2.0/(8.0*thickness_horizontal - 4.0)
+
+            c03_y = 2.0*thickness_diag_down*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_vertical - 4.0) + 2.0*thickness_diag_up*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_vertical - 4.0) + 4.0*thickness_vertical/(8.0*thickness_vertical - 4.0) - 2.0/(8.0*thickness_vertical - 4.0)
+
+
+            c04_x = 2.0*thickness_diag_down*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_horizontal - 4.0) + 2.0*thickness_diag_up*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_horizontal - 4.0) + 4.0*thickness_horizontal/(8.0*thickness_horizontal - 4.0) - 2.0/(8.0*thickness_horizontal - 4.0)
+
+
+            c04_y = 2.0*thickness_diag_down*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_vertical - 4.0) - 2.0*thickness_diag_up*_np.sqrt(thickness_horizontal**2 - thickness_horizontal + thickness_vertical**2 - thickness_vertical + 0.5)/(8.0*thickness_vertical - 4.0) + 4.0*thickness_vertical/(8.0*thickness_vertical - 4.0) - 2.0/(8.0*thickness_vertical - 4.0)
+ 
+
+
+            # c05 = (
+            #     0.5
+            #     * coeff_one_half
+            #     * (thickness_horizontal + thickness_vertical)
+            # )
+            c05_x = thickness_vertical
+            c05_y = thickness_horizontal
             c06 = v_one_half
-            c15 = v_one - c05
-            c14 = v_one - c04
-            c13 = v_one - c03
+            c15_x = v_one - c05_x
+            c15_y = v_one - c05_y
+            c14_x = v_one - c04_x
+            c14_y = v_one - c04_y
+            c13_x = v_one - c03_x
+            c13_y = v_one - c03_y
             c12 = v_one - c02
             c11 = v_one
 
@@ -160,7 +181,7 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [c01, c01],
-                        [c05, c05],
+                        [c05_x, c05_y],
                         [c01, c02],
                         [h01, v02],
                     ],
@@ -174,7 +195,7 @@ class QuadrupelLattice(_TileBase):
                     control_points=[
                         [c01, c01],
                         [c02, c01],
-                        [c05, c05],
+                        [c05_x, c05_y],
                         [h02, v01],
                     ],
                 )
@@ -201,7 +222,7 @@ class QuadrupelLattice(_TileBase):
                         [c12, c01],
                         [c11, c01],
                         [h13, v01],
-                        [c15, c05],
+                        [c15_x, c05_y],
                     ],
                 ),
             )
@@ -211,7 +232,7 @@ class QuadrupelLattice(_TileBase):
                 _Bezier(
                     degrees=[1, 1],
                     control_points=[
-                        [c15, c05],
+                        [c15_x, c05_y],
                         [c11, c01],
                         [h11, v03],
                         [c11, c02],
@@ -239,7 +260,7 @@ class QuadrupelLattice(_TileBase):
                     control_points=[
                         [h11, v12],
                         [c11, c12],
-                        [c15, c15],
+                        [c15_x, c15_y],
                         [c11, c11],
                     ],
                 )
@@ -250,7 +271,7 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [h12, v11],
-                        [c15, c15],
+                        [c15_x, c15_y],
                         [c12, c11],
                         [c11, c11],
                     ],
@@ -275,7 +296,7 @@ class QuadrupelLattice(_TileBase):
                 _Bezier(
                     degrees=[1, 1],
                     control_points=[
-                        [c05, c15],
+                        [c05_x, c15_y],
                         [h03, v11],
                         [c01, c11],
                         [c02, c11],
@@ -291,7 +312,7 @@ class QuadrupelLattice(_TileBase):
                         [c01, c12],
                         [h01, v13],
                         [c01, c11],
-                        [c05, c15],
+                        [c05_x, c15_y],
                     ],
                 )
             )
@@ -315,8 +336,8 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [h01, v02],
-                        [c05, c05],
-                        [c04, c03],
+                        [c05_x, c05_y],
+                        [c04_x, c04_y],
                         [c06, c06],
                     ],
                 )
@@ -327,23 +348,23 @@ class QuadrupelLattice(_TileBase):
                 _Bezier(
                     degrees=[1, 1],
                     control_points=[
-                        [c05, c05],
+                        [c05_x, c05_y],
                         [h02, v01],
                         [c06, c06],
-                        [c03, c04],
+                        [c03_x, c03_y],
                     ],
                 )
             )
-
+            
             # 14
             spline_list.append(
                 _Bezier(
                     degrees=[1, 1],
                     control_points=[
-                        [c03, c04],
+                        [c03_x, c03_y],
                         [h13, v01],
                         [c06, c06],
-                        [c15, c05],
+                        [c15_x, c05_y],
                     ],
                 )
             )
@@ -354,8 +375,8 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [c06, c06],
-                        [c15, c05],
-                        [c14, c13],
+                        [c15_x, c05_y],
+                        [c14_x, c14_y],
                         [h11, v03],
                     ],
                 )
@@ -367,8 +388,8 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [c06, c06],
-                        [c14, c13],
-                        [c15, c15],
+                        [c14_x, c14_y],
+                        [c15_x, c15_y],
                         [h11, v12],
                     ],
                 )
@@ -380,9 +401,22 @@ class QuadrupelLattice(_TileBase):
                     degrees=[1, 1],
                     control_points=[
                         [c06, c06],
-                        [c15, c15],
-                        [c13, c14],
+                        [c15_x, c15_y],
+                        [c13_x, c13_y],
                         [h12, v11],
+                    ],
+                )
+            )
+
+            # 18
+            spline_list.append(
+                _Bezier(
+                    degrees=[1, 1],
+                    control_points=[
+                        [c05_x, c15_y],
+                        [c06, c06],
+                        [h03, v11],
+                        [c13_x, c13_y],
                     ],
                 )
             )
@@ -392,22 +426,9 @@ class QuadrupelLattice(_TileBase):
                 _Bezier(
                     degrees=[1, 1],
                     control_points=[
-                        [c05, c15],
-                        [c06, c06],
-                        [h03, v11],
-                        [c13, c14],
-                    ],
-                )
-            )
-
-            # 20
-            spline_list.append(
-                _Bezier(
-                    degrees=[1, 1],
-                    control_points=[
                         [h01, v13],
-                        [c04, c03],
-                        [c05, c15],
+                        [c04_x, c04_y],
+                        [c05_x, c15_y],
                         [c06, c06],
                     ],
                 )
